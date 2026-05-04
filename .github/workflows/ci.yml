@@ -25,14 +25,12 @@ jobs:
       - name: Run tests
         env:
           SUPABASE_URL: http://mock.supabase.co
-          SUPABASE_ANON_KEY: mock-anon-key
-          SUPABASE_SERVICE_ROLE_KEY: mock-service-role-key
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRFA0NiK7W9oLGAkPOqNvv_G3f6O4gTcATpKLnOY1I4
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hj04zWl196z2-SBc0
           JWT_SECRET: mock-jwt-secret
-          SMTP_HOST: localhost
-          SMTP_PORT: '587'
-          SMTP_USER: test@example.com
-          SMTP_PASS: password
-          EMAIL_FROM: noreply@carepets.com
+          MAILGUN_API_KEY: mock-mailgun-key
+          MAILGUN_DOMAIN: mg.example.com
+          MAILGUN_SENDER_EMAIL: CarePets <noreply@mg.example.com>
         run: |
           cd backend/services/${{ matrix.service }}
           pytest tests/ -v
