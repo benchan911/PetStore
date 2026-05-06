@@ -11,7 +11,7 @@ def _mock_verify_jwt(token):
         user_id, role = token.split(":", 1)
     else:
         user_id, role = token, "owner"
-    return {"sub": user_id, "user_metadata": {"role": role}}
+    return {"id": user_id, "user_metadata": {"role": role}}
 
 
 @pytest.fixture(autouse=True)
