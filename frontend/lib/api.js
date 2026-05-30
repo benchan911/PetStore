@@ -58,5 +58,9 @@ export const api = {
       request(`/bookings/${id}/apply`, { method: 'POST', body: JSON.stringify(body) }),
     confirm: (id, body) =>
       request(`/bookings/${id}/confirm`, { method: 'POST', body: JSON.stringify(body) }),
+    withdraw: (bookingId, applicationId) =>
+      request(`/bookings/${bookingId}/applications/${applicationId}`, { method: 'DELETE' }),
+    reject: (bookingId, applicationId) =>
+      request(`/bookings/${bookingId}/applications/${applicationId}/reject`, { method: 'POST' }),
   },
 };

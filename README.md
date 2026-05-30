@@ -47,7 +47,10 @@ Fill in `backend/.env`:
 | `SUPABASE_ANON_KEY` | Project Settings → API → anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → service_role key |
 | `JWT_SECRET` | Project Settings → API → JWT Settings → JWT Secret |
-| `SMTP_*` | Your SMTP provider credentials |
+| `SMTP_HOST` | `smtp.gmail.com` for Gmail / Google Workspace |
+| `SMTP_PORT` | `587` (STARTTLS) |
+| `SMTP_USERNAME` | Your full email address (e.g. `solaiym.2022@scis.smu.edu.sg`) |
+| `SMTP_PASSWORD` | Google App Password — generate at **myaccount.google.com → Security → 2-Step Verification → App passwords** (requires 2FA to be enabled first) |
 
 ### Run
 
@@ -270,7 +273,7 @@ flowchart TD
     end
 
     Supabase[("Supabase\nPostgres + Auth\n+ RLS")]
-    Mailgun["Mailgun\nEmail API"]
+    SMTP["SMTP\nEmail (Gmail)"]
 
     Browser -- "HTTP /api/*" --> GW
     GW -- "/auth/*" --> Auth
@@ -289,7 +292,7 @@ flowchart TD
     Bookings -- "booking + application CRUD" --> Supabase
     SharedLib -- "verify token\nGET /auth/v1/user" --> Supabase
 
-    Bookings -- "confirmed / rejected\nnotifications" --> Mailgun
+    Bookings -- "confirmed / rejected\nnotifications" --> SMTP
 ```
 
 **Request flow — creating a booking:**
@@ -317,12 +320,12 @@ C4Context
     System(carepets, "CarePets", "Pet care marketplace web application")
 
     System_Ext(supabase, "Supabase", "Managed Postgres database with built-in Auth, JWT issuance, and Row Level Security")
-    System_Ext(mailgun, "Mailgun", "Transactional email API used to notify caretakers of application outcomes")
+    System_Ext(smtp, "SMTP / Gmail", "Sends transactional emails to notify caretakers of application outcomes")
 
     Rel(owner, carepets, "Signs up, posts jobs, confirms caretakers", "HTTPS")
     Rel(caretaker, carepets, "Signs up, browses jobs, applies", "HTTPS")
     Rel(carepets, supabase, "Persists all data and authenticates users", "HTTPS / REST")
-    Rel(carepets, mailgun, "Sends booking outcome notifications", "HTTPS / REST")
+    Rel(carepets, smtp, "Sends booking outcome notifications", "SMTP / STARTTLS")
 ```
 
 ### Level 2 — Container Diagram
@@ -344,11 +347,11 @@ C4Container
         Container(users_svc, "Users Service", "Flask / Python 3.11", "GET|PUT /users/:id  GET /users/caretakers")
         Container(pets_svc, "Pets Service", "Flask / Python 3.11", "GET|POST /pets  GET|PUT|DELETE /pets/:id")
         Container(bookings_svc, "Bookings Service", "Flask / Python 3.11", "GET|POST /bookings  DELETE /bookings/:id  POST /bookings/:id/apply  POST /bookings/:id/confirm")
-        Container(shared, "Shared Library", "Python module", "jwt_middleware — @jwt_required / @role_required decorators. email_service — Mailgun wrapper.")
+        Container(shared, "Shared Library", "Python module", "jwt_middleware — @jwt_required / @role_required decorators. email_service — SMTP wrapper (Gmail / Google Workspace).")
     }
 
     System_Ext(supabase, "Supabase", "Postgres + GoTrue Auth + RLS")
-    System_Ext(mailgun, "Mailgun", "Email delivery")
+    System_Ext(smtp, "SMTP / Gmail", "Email delivery via STARTTLS")
 
     Rel(owner, frontend, "Uses", "HTTPS :3000")
     Rel(caretaker, frontend, "Uses", "HTTPS :3000")
@@ -369,7 +372,7 @@ C4Container
     Rel(pets_svc, supabase, "DB queries", "HTTPS REST")
     Rel(bookings_svc, supabase, "DB queries", "HTTPS REST")
     Rel(shared, supabase, "Token validation — GET /auth/v1/user", "HTTPS REST")
-    Rel(bookings_svc, mailgun, "Send outcome emails", "HTTPS REST")
+    Rel(bookings_svc, smtp, "Send outcome emails", "SMTP / STARTTLS")
 ```
 
 ### Level 3 — Component Diagram (Bookings Service)
@@ -380,7 +383,7 @@ C4Component
 
     Container_Ext(gateway, "nginx Gateway")
     Container_Ext(supabase, "Supabase")
-    Container_Ext(mailgun, "Mailgun")
+    Container_Ext(smtp, "SMTP / Gmail")
 
     Container_Boundary(bookings, "Bookings Service") {
         Component(bookings_res, "Bookings Resource", "Flask-RESTful Resource", "GET /bookings — list all (owner: own, caretaker: open)\nPOST /bookings — create a new booking (owner only)")
@@ -407,5 +410,5 @@ C4Component
     Rel(apply_res, supabase, "INSERT applications")
     Rel(confirm_res, supabase, "UPDATE bookings + applications")
     Rel(confirm_res, email_svc, "Notify caretakers")
-    Rel(email_svc, mailgun, "POST /messages")
+    Rel(email_svc, smtp, "sendmail via STARTTLS")
 ```

@@ -52,7 +52,7 @@ CREATE TABLE applications (
     caretaker_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
     message TEXT,
     proposed_rate DECIMAL(10,2),
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'withdrawn')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(booking_id, caretaker_id) -- one application per caretaker per booking

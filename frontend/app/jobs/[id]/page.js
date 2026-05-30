@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, DollarSign, CheckCircle } from 'lucide-react';
+import { Calendar, DollarSign, CheckCircle, XCircle, Ban } from 'lucide-react';
 
 const applySchema = z.object({
   message: z.string().min(10, 'Please write at least 10 characters'),
@@ -34,6 +34,7 @@ const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800',
   accepted: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-700',
+  withdrawn: 'bg-gray-100 text-gray-500',
 };
 
 function JobDetailContent() {
@@ -43,6 +44,9 @@ function JobDetailContent() {
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(null);
   const [applying, setApplying] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [rejecting, setRejecting] = useState(null);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(applySchema),
@@ -66,6 +70,49 @@ function JobDetailContent() {
       toast.error(e.message);
     } finally {
       setConfirming(null);
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    setCancelling(true);
+    try {
+      await api.bookings.delete(id);
+      toast.success('Job posting cancelled.');
+      const updated = await api.bookings.get(id);
+      setBooking(updated);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleRejectApplication = async (applicationId) => {
+    setRejecting(applicationId);
+    try {
+      await api.bookings.reject(id, applicationId);
+      toast.success('Application rejected.');
+      const updated = await api.bookings.get(id);
+      setBooking(updated);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setRejecting(null);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!myApplication) return;
+    setWithdrawing(true);
+    try {
+      await api.bookings.withdraw(id, myApplication.id);
+      toast.success('Application withdrawn.');
+      const updated = await api.bookings.get(id);
+      setBooking(updated);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -122,6 +169,19 @@ function JobDetailContent() {
               {booking.pets.breed && ` · ${booking.pets.breed}`}
             </p>
           )}
+          {isOwner && booking.status === 'open' && (
+            <div className="pt-2">
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={cancelling}
+                onClick={handleCancelBooking}
+              >
+                <Ban className="w-3.5 h-3.5 mr-1" />
+                {cancelling ? 'Cancelling…' : 'Cancel job posting'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -154,15 +214,26 @@ function JobDetailContent() {
                       <p className="text-sm text-gray-500">Proposed rate: ${app.proposed_rate}/hr</p>
                     )}
                     {booking.status === 'open' && app.status === 'pending' && (
-                      <Button
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700"
-                        disabled={confirming === app.id}
-                        onClick={() => handleConfirm(app.id)}
-                      >
-                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                        {confirming === app.id ? 'Confirming…' : 'Confirm this caretaker'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700"
+                          disabled={confirming === app.id || rejecting === app.id}
+                          onClick={() => handleConfirm(app.id)}
+                        >
+                          <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                          {confirming === app.id ? 'Confirming…' : 'Confirm this caretaker'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={rejecting === app.id || confirming === app.id}
+                          onClick={() => handleRejectApplication(app.id)}
+                        >
+                          <XCircle className="w-3.5 h-3.5 mr-1" />
+                          {rejecting === app.id ? 'Rejecting…' : 'Reject'}
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -173,7 +244,7 @@ function JobDetailContent() {
       )}
 
       {/* Caretaker: apply form or existing application */}
-      {!isOwner && booking.status === 'open' && (
+      {!isOwner && (booking.status === 'open' || myApplication) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -191,6 +262,17 @@ function JobDetailContent() {
                 <p className="text-sm text-gray-600">{myApplication.message}</p>
                 {myApplication.proposed_rate && (
                   <p className="text-sm text-gray-500">Your rate: ${myApplication.proposed_rate}/hr</p>
+                )}
+                {myApplication.status === 'pending' && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={withdrawing}
+                    onClick={handleWithdraw}
+                  >
+                    <XCircle className="w-3.5 h-3.5 mr-1" />
+                    {withdrawing ? 'Withdrawing…' : 'Withdraw application'}
+                  </Button>
                 )}
               </div>
             ) : (

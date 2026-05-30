@@ -131,3 +131,143 @@ def test_confirm_applicant(mock_supabase, mock_rejected, mock_confirmed, client)
     )
 
     assert response.status_code == 200
+
+
+# --- Cancel booking tests ---
+
+@patch("app.supabase")
+def test_cancel_booking(mock_supabase, client):
+    booking_result = MagicMock()
+    booking_result.data = [{"owner_id": "owner-id", "status": "open"}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = booking_result
+    mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+    response = client.delete(
+        "/bookings/booking-id",
+        headers=auth_header("owner-id", "owner"),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["message"] == "Booking cancelled successfully"
+
+
+@patch("app.supabase")
+def test_cancel_confirmed_booking(mock_supabase, client):
+    booking_result = MagicMock()
+    booking_result.data = [{"owner_id": "owner-id", "status": "confirmed"}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = booking_result
+
+    response = client.delete(
+        "/bookings/booking-id",
+        headers=auth_header("owner-id", "owner"),
+    )
+
+    assert response.status_code == 400
+    assert "confirmed" in response.get_json()["error"]
+
+
+@patch("app.supabase")
+def test_cancel_booking_not_owner(mock_supabase, client):
+    booking_result = MagicMock()
+    booking_result.data = [{"owner_id": "other-owner-id", "status": "open"}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = booking_result
+
+    response = client.delete(
+        "/bookings/booking-id",
+        headers=auth_header("owner-id", "owner"),
+    )
+
+    assert response.status_code == 404
+
+
+# --- Withdraw application tests ---
+
+@patch("app.supabase")
+def test_withdraw_application(mock_supabase, client):
+    app_result = MagicMock()
+    app_result.data = [{"caretaker_id": "caretaker-id", "status": "pending"}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = app_result
+    mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+    response = client.delete(
+        "/bookings/booking-id/applications/app-id",
+        headers=auth_header("caretaker-id", "caretaker"),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["message"] == "Application withdrawn successfully"
+
+
+@patch("app.supabase")
+def test_withdraw_application_not_owner(mock_supabase, client):
+    app_result = MagicMock()
+    app_result.data = [{"caretaker_id": "other-caretaker-id", "status": "pending"}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = app_result
+
+    response = client.delete(
+        "/bookings/booking-id/applications/app-id",
+        headers=auth_header("caretaker-id", "caretaker"),
+    )
+
+    assert response.status_code == 404
+
+
+@patch("app.supabase")
+def test_withdraw_non_pending_application(mock_supabase, client):
+    app_result = MagicMock()
+    app_result.data = [{"caretaker_id": "caretaker-id", "status": "accepted"}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = app_result
+
+    response = client.delete(
+        "/bookings/booking-id/applications/app-id",
+        headers=auth_header("caretaker-id", "caretaker"),
+    )
+
+    assert response.status_code == 400
+    assert "accepted" in response.get_json()["error"]
+
+
+# --- Reject application tests ---
+
+@patch("app.supabase")
+def test_reject_application(mock_supabase, client):
+    booking_result = MagicMock()
+    booking_result.data = [{"owner_id": "owner-id", "status": "open"}]
+    app_result = MagicMock()
+    app_result.data = [{"status": "pending"}]
+    # Booking query: .select().eq().execute()  (single eq)
+    mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = booking_result
+    # Application query: .select().eq().eq().execute()  (double eq)
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = app_result
+    mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+    response = client.post(
+        "/bookings/booking-id/applications/app-id/reject",
+        headers=auth_header("owner-id", "owner"),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["message"] == "Application rejected successfully"
+
+
+@patch("app.supabase")
+def test_reject_application_not_owner(mock_supabase, client):
+    booking_result = MagicMock()
+    booking_result.data = [{"owner_id": "other-owner-id", "status": "open"}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = booking_result
+
+    response = client.post(
+        "/bookings/booking-id/applications/app-id/reject",
+        headers=auth_header("owner-id", "owner"),
+    )
+
+    assert response.status_code == 404
+
+
+def test_reject_application_wrong_role(client):
+    response = client.post(
+        "/bookings/booking-id/applications/app-id/reject",
+        headers=auth_header("caretaker-id", "caretaker"),
+    )
+
+    assert response.status_code == 403

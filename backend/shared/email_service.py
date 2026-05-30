@@ -1,26 +1,30 @@
 import os
-import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 def send_email(to_email: str, subject: str, body: str):
-    api_key = os.getenv("MAILGUN_API_KEY")
-    domain = os.getenv("MAILGUN_DOMAIN")
-    sender = os.getenv("MAILGUN_SENDER_EMAIL")
+    host = os.getenv("SMTP_HOST")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    username = os.getenv("SMTP_USER")
+    password = os.getenv("SMTP_PASS")
+    sender = os.getenv("EMAIL_FROM", username)
 
-    if not all([api_key, domain, sender]):
-        raise ValueError("Mailgun configuration missing")
+    if not all([host, username, password]):
+        raise ValueError("SMTP configuration missing")
 
-    response = requests.post(
-        f"https://api.mailgun.net/v3/{domain}/messages",
-        auth=("api", api_key),
-        data={
-            "from": sender,
-            "to": to_email,
-            "subject": subject,
-            "text": body,
-        },
-    )
-    response.raise_for_status()
+    msg = MIMEMultipart()
+    msg["From"] = sender
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    with smtplib.SMTP(host, port) as server:
+        server.ehlo()
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(sender, to_email, msg.as_string())
 
 
 def send_applicant_confirmed_email(caretaker_email: str, booking_details: dict):
