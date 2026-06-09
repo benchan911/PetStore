@@ -28,7 +28,7 @@ class Bookings(Resource):
     @jwt_required
     @role_required('owner')
     def post(self):
-        data = request.get_json()
+        data = None
         pet_id = data.get('pet_id')
         start_date = data.get('start_date')
         end_date = data.get('end_date')
