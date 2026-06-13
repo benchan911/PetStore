@@ -16,6 +16,15 @@ frontend (Next.js 15, port 3000)
 Data layer: Supabase (hosted Postgres + Auth)
 ```
 
+## API Documentation
+
+The backend API is fully documented with OpenAPI/Swagger:
+
+- **Spec file**: `docs/swagger/openapi.yaml`
+- **Quick guide**: `docs/swagger/README.md`
+
+View the API interactively at https://editor.swagger.io/ (paste the spec file contents), or run locally with Docker (see guide).
+
 ## Prerequisites
 
 - Docker Desktop (for backend)
@@ -41,16 +50,16 @@ cp backend/.env.example backend/.env
 
 Fill in `backend/.env`:
 
-| Variable | Where to find it |
-|---|---|
-| `SUPABASE_URL` | Project Settings → API → Project URL |
-| `SUPABASE_ANON_KEY` | Project Settings → API → anon/public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → service_role key |
-| `JWT_SECRET` | Project Settings → API → JWT Settings → JWT Secret |
-| `SMTP_HOST` | `smtp.gmail.com` for Gmail / Google Workspace |
-| `SMTP_PORT` | `587` (STARTTLS) |
-| `SMTP_USERNAME` | Your full email address (e.g. `solaiym.2022@scis.smu.edu.sg`) |
-| `SMTP_PASSWORD` | Google App Password — generate at **myaccount.google.com → Security → 2-Step Verification → App passwords** (requires 2FA to be enabled first) |
+| Variable                    | Where to find it                                                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`              | Project Settings → API → Project URL                                                                                                           |
+| `SUPABASE_ANON_KEY`         | Project Settings → API → anon/public key                                                                                                       |
+| `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → service_role key                                                                                                      |
+| `JWT_SECRET`                | Project Settings → API → JWT Settings → JWT Secret                                                                                             |
+| `SMTP_HOST`                 | `smtp.gmail.com` for Gmail / Google Workspace                                                                                                  |
+| `SMTP_PORT`                 | `587` (STARTTLS)                                                                                                                               |
+| `SMTP_USERNAME`             | Your full email address (e.g. `solaiym.2022@scis.smu.edu.sg`)                                                                                  |
+| `SMTP_PASSWORD`             | Google App Password — generate at **myaccount.google.com → Security → 2-Step Verification → App passwords** (requires 2FA to be enabled first) |
 
 ### Run
 
@@ -174,11 +183,11 @@ The user's role (`owner` or `caretaker`) is embedded in `user_metadata` at signu
 
 Supabase's Postgres RLS policies form a second enforcement layer independent of application code. Key policies:
 
-| Table | Policy |
-|---|---|
-| `profiles` | Users can only read/update their own row; public read allowed for caretaker browsing |
-| `pets` | Owners can only SELECT/INSERT/UPDATE/DELETE their own pets (`auth.uid() = owner_id`) |
-| `bookings` | Owners manage their own bookings; caretakers can only SELECT rows with `status = 'open'` |
+| Table          | Policy                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| `profiles`     | Users can only read/update their own row; public read allowed for caretaker browsing                    |
+| `pets`         | Owners can only SELECT/INSERT/UPDATE/DELETE their own pets (`auth.uid() = owner_id`)                    |
+| `bookings`     | Owners manage their own bookings; caretakers can only SELECT rows with `status = 'open'`                |
 | `applications` | Caretakers manage their own applications; owners can view applications on their bookings via a subquery |
 
 Even if application-level auth were bypassed, RLS would still prevent cross-user data access. The backend services use the `SERVICE_ROLE_KEY`, which bypasses RLS so services can operate freely, but this key is never exposed to the browser.
@@ -208,22 +217,22 @@ Application logic verifies ownership before mutations even when RLS is active, p
 
 ### Confidentiality
 
-| Control | How it is implemented |
-|---|---|
-| Password secrecy | bcrypt hashing in Supabase Auth; plain-text never stored |
-| Data access control | RLS policies restrict rows to their owners |
-| Token secrecy | RS256 private key stays in Supabase; service role key never sent to browser |
-| Role separation | Caretakers cannot read owner-only data; owners cannot see other owners' pets |
-| Transport | All browser → gateway traffic should run over HTTPS in production; nginx forwards `X-Forwarded-Proto` |
+| Control             | How it is implemented                                                                                 |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| Password secrecy    | bcrypt hashing in Supabase Auth; plain-text never stored                                              |
+| Data access control | RLS policies restrict rows to their owners                                                            |
+| Token secrecy       | RS256 private key stays in Supabase; service role key never sent to browser                           |
+| Role separation     | Caretakers cannot read owner-only data; owners cannot see other owners' pets                          |
+| Transport           | All browser → gateway traffic should run over HTTPS in production; nginx forwards `X-Forwarded-Proto` |
 
 ### Integrity
 
-| Control | How it is implemented |
-|---|---|
-| Schema constraints | `CHECK` constraints enforce valid `role` and `status` values at the DB level |
-| Uniqueness | `UNIQUE(booking_id, caretaker_id)` prevents a caretaker submitting multiple applications to the same booking |
-| Ownership checks | Mutations verify the requesting user owns the resource before proceeding |
-| Timestamp accuracy | `updated_at` triggers fire on every `UPDATE`, maintaining an accurate audit trail |
+| Control                   | How it is implemented                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Schema constraints        | `CHECK` constraints enforce valid `role` and `status` values at the DB level                                                         |
+| Uniqueness                | `UNIQUE(booking_id, caretaker_id)` prevents a caretaker submitting multiple applications to the same booking                         |
+| Ownership checks          | Mutations verify the requesting user owns the resource before proceeding                                                             |
+| Timestamp accuracy        | `updated_at` triggers fire on every `UPDATE`, maintaining an accurate audit trail                                                    |
 | Atomic status transitions | Confirming a booking updates the booking status and all sibling applications in a single service operation, keeping state consistent |
 
 ### Availability

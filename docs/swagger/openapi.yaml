@@ -1,0 +1,838 @@
+openapi: 3.0.3
+info:
+  title: CarePets API
+  version: 1.0.0
+  description: |
+    OpenAPI specification for the CarePets backend exposed via the nginx gateway.
+
+    Base path uses /api because requests are routed through backend/gateway/nginx.conf.
+servers:
+  - url: http://localhost:8080
+    description: Local gateway
+  - url: https://your-gateway-domain.example.com
+    description: Production gateway (replace with your domain)
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Pets
+  - name: Bookings
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    SuccessMessage:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    SignupRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          type: string
+          enum: [owner, caretaker]
+        name:
+          type: string
+        bio:
+          type: string
+        hourly_rate:
+          type: number
+          format: float
+        accepted_pet_types:
+          type: array
+          items:
+            type: string
+      required: [email, password, role]
+
+    SignupResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        user_id:
+          type: string
+      required: [message, user_id]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+              format: email
+            role:
+              type: string
+              nullable: true
+              enum: [owner, caretaker]
+      required: [access_token, refresh_token, user]
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum: [owner, caretaker]
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        hourly_rate:
+          type: number
+          format: float
+          nullable: true
+        accepted_pet_types:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        bio:
+          type: string
+        hourly_rate:
+          type: number
+          format: float
+        accepted_pet_types:
+          type: array
+          items:
+            type: string
+
+    Pet:
+      type: object
+      properties:
+        id:
+          type: string
+        owner_id:
+          type: string
+        name:
+          type: string
+        species:
+          type: string
+        breed:
+          type: string
+          nullable: true
+        age:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        photo_url:
+          type: string
+          nullable: true
+      required: [id, owner_id, name, species]
+
+    CreatePetRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        species:
+          type: string
+        breed:
+          type: string
+        age:
+          type: integer
+        notes:
+          type: string
+        photo_url:
+          type: string
+      required: [name, species]
+
+    UpdatePetRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        species:
+          type: string
+        breed:
+          type: string
+        age:
+          type: integer
+        notes:
+          type: string
+        photo_url:
+          type: string
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+        owner_id:
+          type: string
+        pet_id:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        description:
+          type: string
+        budget:
+          type: number
+          format: float
+          nullable: true
+        status:
+          type: string
+          enum: [open, confirmed, cancelled]
+      required: [id, owner_id, pet_id, start_date, end_date, description, status]
+
+    CreateBookingRequest:
+      type: object
+      properties:
+        pet_id:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        description:
+          type: string
+        budget:
+          type: number
+          format: float
+      required: [pet_id, start_date, end_date, description]
+
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+        booking_id:
+          type: string
+        caretaker_id:
+          type: string
+        message:
+          type: string
+          nullable: true
+        proposed_rate:
+          type: number
+          format: float
+          nullable: true
+        status:
+          type: string
+          enum: [pending, accepted, rejected, withdrawn]
+      required: [id, booking_id, caretaker_id, status]
+
+    ApplyRequest:
+      type: object
+      properties:
+        message:
+          type: string
+        proposed_rate:
+          type: number
+          format: float
+
+    ConfirmRequest:
+      type: object
+      properties:
+        application_id:
+          type: string
+      required: [application_id]
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/auth/signup:
+    post:
+      tags: [Auth]
+      summary: Sign up a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '400':
+          description: Invalid signup input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Validation or auth provider error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout current user
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Logout error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current authenticated profile
+      responses:
+        '200':
+          description: Profile fetched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/caretakers:
+    get:
+      tags: [Users]
+      summary: List all caretaker profiles
+      security: []
+      responses:
+        '200':
+          description: Caretaker list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Profile'
+        '400':
+          description: Query error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/{user_id}:
+    get:
+      tags: [Users]
+      summary: Get own profile by user id
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Profile fetched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '403':
+          description: Can only view own profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Users]
+      summary: Update own profile fields
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '403':
+          description: Can only update own profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/pets:
+    get:
+      tags: [Pets]
+      summary: List pets owned by current user
+      responses:
+        '200':
+          description: Pets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Pets]
+      summary: Create a new pet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePetRequest'
+      responses:
+        '201':
+          description: Pet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          description: Validation or insert error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/pets/{pet_id}:
+    get:
+      tags: [Pets]
+      summary: Get one pet owned by current user
+      parameters:
+        - in: path
+          name: pet_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pet fetched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '404':
+          description: Pet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Pets]
+      summary: Update one pet owned by current user
+      parameters:
+        - in: path
+          name: pet_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePetRequest'
+      responses:
+        '200':
+          description: Pet updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Update error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Pets]
+      summary: Delete one pet owned by current user
+      parameters:
+        - in: path
+          name: pet_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pet deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Delete error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bookings:
+    get:
+      tags: [Bookings]
+      summary: List bookings relevant to current role
+      description: Owners see their bookings. Caretakers see open bookings.
+      responses:
+        '200':
+          description: Bookings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+    post:
+      tags: [Bookings]
+      summary: Create booking (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: Validation or insert error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bookings/{booking_id}:
+    get:
+      tags: [Bookings]
+      summary: Get booking details
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Booking fetched
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Not authorized to view booking
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Bookings]
+      summary: Cancel booking (owner only)
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Invalid state for cancellation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Booking not found or not owned by caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bookings/{booking_id}/apply:
+    post:
+      tags: [Bookings]
+      summary: Apply to booking (caretaker only)
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyRequest'
+      responses:
+        '201':
+          description: Application created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: Booking unavailable or insert error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bookings/{booking_id}/confirm:
+    post:
+      tags: [Bookings]
+      summary: Confirm one application and reject others (owner only)
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmRequest'
+      responses:
+        '200':
+          description: Applicant confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Validation or update error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Booking not found or not owned by caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bookings/{booking_id}/applications/{application_id}:
+    delete:
+      tags: [Bookings]
+      summary: Withdraw an application (caretaker only)
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: application_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Application withdrawn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Invalid state for withdrawal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Application not found or not owned by caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bookings/{booking_id}/applications/{application_id}/reject:
+    post:
+      tags: [Bookings]
+      summary: Reject one application (owner only)
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: application_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Application rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Invalid state for rejection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Booking or application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
